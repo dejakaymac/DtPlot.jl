@@ -1,7 +1,8 @@
 module DtPlot
 
 #using Winston
-#using PyPlot
+using PyPlot
+#using Winston
 using PosixCalendar
 using Predictors
 using DeepThought.DTPredictors
@@ -10,7 +11,7 @@ using Verification
 using DataFrames
 using Datetime
 #import Gadfly.plot
-using Gadfly
+#using Gadfly
 #include(joinpath(Pkg.dir("Gadfly"), "src", "gadfly.js"))
 
 
@@ -90,35 +91,99 @@ fx[:x4] = [datetime(PosixCalendar.ymdhms(x)...) for x = fx[:basetime] + fx[:prog
 fx[:x5] = [string(datetime(PosixCalendar.ymdhms(x)...)) for x = fx[:basetime] + fx[:prognosis]]
 
 fx[:y] = [median(x) for x = fx[:value]]
+fx[:q75] = [quantile(x, 0.75) for x = fx[:value]]
+fx[:q25] = [quantile(x, 0.75) for x = fx[:value]]
 
-## figure()
-## for fc in groupby(fx, :basetime)
-##     plot(fc[:x1], fc[:y],"o")
-## end
+sort!(fx,cols=:x2)
 
-## figure()
-## for fc in groupby(fx, :basetime)
-##     plot(fc[:x2], fc[:y],"o")
-## end
 
-## figure()
-## for fc in groupby(fx, :basetime)
-##     plot(fc[:x3], fc[:y],"o")
-## end
+# Need to add obs to dataframe
 
-## figure()
-## for fc in groupby(fx, :basetime)
-##    plot_date(fc[:x4], fc[:y],"o")
-## end
 
+# figure()
+# for fc in groupby(fx, :basetime)
+#     plot(fc[:x1], fc[:y],"o")
+# end
+
+# figure()
+# for fc in groupby(fx, :basetime)
+#     plot(fc[:x2], fc[:y],"o")
+# end
+
+figure()
 for fc in groupby(fx, :basetime)
-    p = Gadfly.plot(fc ,x="x5",y="y",Geom.line)
-    #draw(D3("mammals.js", 6inch, 6inch), p)
-    draw(SVG("myplot.svg", 12inch, 6inch), p)
+    plot(fc[:x3], fc[:y],"o-")
+end
+plot(vts, )
+
+figure()
+for fc in groupby(fx, :basetime)
+    #plot(fc[:x3], fc[:y],"o-")
+    errorbar(fc[:x3], fc[:y], yerr=[fc[:q25], fc[:q75]],
+             fmt="o", ecolor='g', capthick=2)
 end
 
-p = plot(fx, x="x2", y="y",color="basetime", Geom.line)
-draw(SVG("myplot2.svg", 12inch, 6inch), p)
+# figure()
+# for fc in groupby(fx, :basetime)
+#     #plot(fc[:x3], fc[:y],"o-")
+#     errorbar(fc[:x3], fc[:y], yerr=[fc[:q25], fc[:q75]],
+#              fmt="o", ecolor='g', capthick=2)
+# end
+
+# p = FramedPlot(
+#          title="title!",
+#          xlabel="\\Sigma x^2_i",
+#          ylabel="\\Theta_i")
+
+# for fc in groupby(fx, :basetime)
+#     x = Float64[]
+#     y = Float64[]
+#     yp = Float64[]
+#     ym = Float64[]
+#     [push!(x, i)  for i = fc[:x3]]
+#     [push!(y, i)  for i = fc[:y]]
+#     [push!(yp, i) for i = fc[:q25]]
+#     [push!(ym, i) for i = fc[:q75]]
+#     # add(p, FillBetween(x, ym, x, yp))
+#     # add(p, Curve(x, y))
+#     # add(p, Points(x, y))
+#     # savefig("fig.png")
+#     add(p,Winston.ErrorBarsY(x,ym,yp,color="green"))
+# end
+# savefig("fig.png")
+# # function basicplot(df) # This should be *much* more sophisticated!
+# #     p=Winston.FramedPlot(xlabel="$(names(df)[1]) (hours)")
+# #     t=map((x)->x.seconds/3600,df[1])
+# #     add(p,Winston.ErrorBarsY(t,df[:q05],df[:q95],color="green"))
+# #     add(p,Winston.ErrorBarsY(t,df[:q25],df[:q75],color="blue"))
+# #     add(p,Winston.ErrorBarsY(t,df[:q50],df[:q50],color="red"))
+# #     return p
+# # end
+
+
+# figure()
+# for fc in groupby(fx, :basetime)
+#     x = Float64[]
+#     y = Float64[]
+#     [push!(x, xi) for xi = fc[:x3]]
+#     [push!(y, yi) for yi = fc[:y]]
+#     oplot(x, y,"o-")
+# end
+# savefig("figure.png") 
+
+# figure()
+# for fc in groupby(fx, :basetime)
+#    plot_date(fc[:x4], fc[:y],"o")
+# end
+
+# for fc in groupby(fx, :basetime)
+#     p = Gadfly.plot(fc ,x="x5",y="y",Geom.line)
+#     #draw(D3("mammals.js", 6inch, 6inch), p)
+#     draw(SVG("myplot.svg", 12inch, 6inch), p)
+# end
+
+# p = plot(fx, x="x2", y="y",color="basetime", Geom.line)
+# draw(SVG("myplot2.svg", 12inch, 6inch), p)
  
 
 ## #-------------------------------------------------------------------------------
