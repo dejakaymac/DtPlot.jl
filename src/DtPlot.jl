@@ -10,32 +10,60 @@ using DeepThought.DTPDFS
 using Verification
 using DataFrames
 using Datetime
+import DeepThought.DTPDFS.PDF
 #import Gadfly.plot
 #using Gadfly
 #include(joinpath(Pkg.dir("Gadfly"), "src", "gadfly.js"))
 
+#include(joinpath(Pkg.dir("DeepThought"), "src/pdf.jl"))
 
-REPOSITORY = "/home/jade/metservice/code/deepthought/revising/branch-revisingjob/install/data-root_static"
-STATION = "93110"
 
-OBS = Observation(REPOSITORY,STATION,"TTTTT","target","observation")
+## function median(pdf::PDF)
+##     if length(pdf.parameters) == 0
+##         return NA
+##     else
+##         return DTPDFS.median(pdf)
+##     end
+## end
+
+
+REPOSITORY = "/var/lib/nfs/deepthought-data-epd"
+STATION = "93831"
+FVAR = "TMinDaily"
+#FVAR = "TTTTT"
+    
+#OBS = Observation(REPOSITORY,STATION,"TTTTT","target","observation")
+OBS = Observation(REPOSITORY,STATION,"TMinDaily","generic","observation_processed_daily")
 #G = PDFForecast(REPOSITORY,STATION,"TTTTT","revising_TTTTTNZBlend_TTTTT")
-F = PDFForecast(REPOSITORY,STATION,"TTTTT","polishing_TTTTTNZBlend_TTTTT")
+#F = PDFForecast(REPOSITORY,STATION,"TTTTT","polishing_TTTTTNZBlend_TTTTT")
+#F = PDFForecast(REPOSITORY,STATION,"TMinDaily","blending_TMinDailyblend_TMinDaily")
+candidate = "blending_TMinDailyblend_TMinDaily"
+#candidate = "blending_TTTTTNZBlend_TTTTT"
+#candidate = "vbagging_TTTTTnz8km_TTTTT"
+## candidate = "vbagging_TTTTTnz8kmecgfs_TTTTT"
+## candidate = "vbagging_TTTTTaccessAecgfs_TTTTT"
+## candidate = "vbagging_TTTTTaccessA_TTTTT"
+## candidate = "vbagging_TTTTTecgfscmc_TTTTT"
+## candidate = "vbagging_TTTTTecgfs_TTTTT"
+F = PDFForecast(REPOSITORY,STATION,FVAR, candidate)
 
 hourinsecs = 60*60
 dayinsecs = 24*3600
 
 #period = Request((Time(2013,7,1),Time(2013,10,1),86400),(0,48*3600))
-period = Request((Time(2014,5,1),Time(2014,5,30), 12*hourinsecs),(0,48*3600))
+#period = Request((Time(2014,5,1),Time(2014,5,30), 12*hourinsecs),(0,48*3600))
+#period = Request((Time(2014,5,20),Time(2014,5,30), 12*hourinsecs),(0,48*3600))
+period = Request((Time(2014,5,26,0),Time(2014,5,26,18), 12*hourinsecs),(0,48*3600))
 
 
-## hint(OBS, period)
-## obs = getdata(OBS, period)
+hint(OBS, period)
+obs = getdata(OBS, period)
 
-## vts = None
-## pps = None
-## vals = None
-## bts = sort(collect(keys(obs)))
+vts = None
+pps = None
+vals = None
+bts = sort(collect(keys(obs)))
+
 
 ## function plot{T}(p::Predictor{T},period::Request)
 ##     BT = Time[]
@@ -53,15 +81,15 @@ period = Request((Time(2014,5,1),Time(2014,5,30), 12*hourinsecs),(0,48*3600))
     
     
 ## end
-
-## for bt = bts
-##     pps = sort(collect(keys(obs[bt])))
-##     vts = sort([bt + pp for pp = pps])
-##     vals = [obs[bt][pp] for pp = pps]
-##     pps = [pp.seconds for pp in pps]
-##     vts = [vt.seconds for vt in vts]
-##     plot(vts, vals)
-## end         
+figure()
+for bt = bts
+    pps = sort(collect(keys(obs[bt])))
+    vts = sort([bt + pp for pp = pps])
+    vals = [obs[bt][pp] for pp = pps]
+    pps = [pp.seconds for pp in pps]
+    vts = [vt.seconds/3600 for vt in vts]
+    plot(vts, vals,"k")
+end         
 
 ## #-------------------------------------------------------------------------------
 ## figure()
@@ -92,8 +120,10 @@ fx[:x5] = [string(datetime(PosixCalendar.ymdhms(x)...)) for x = fx[:basetime] + 
 
 fx[:y] = [median(x) for x = fx[:value]]
 fx[:q75] = [quantile(x, 0.75) for x = fx[:value]]
-fx[:q25] = [quantile(x, 0.75) for x = fx[:value]]
+fx[:q25] = [quantile(x, 0.25) for x = fx[:value]]
 
+#fx[:y] = dropna(fx[:y])
+    
 sort!(fx,cols=:x2)
 
 
@@ -110,18 +140,66 @@ sort!(fx,cols=:x2)
 #     plot(fc[:x2], fc[:y],"o")
 # end
 
-figure()
+#figure()
+title(candidate)
 for fc in groupby(fx, :basetime)
+    println(fc[:x3])
+    println(fc[:y])
+ 
+    #break
     plot(fc[:x3], fc[:y],"o-")
-end
-plot(vts, )
+    #break
+    for fpp in groupby(fc, :prognosis)
+        println("naz")
+        ## if anyna(fpp[:y])
+        ##        continue
+        ##    end
+        #continue
+        #println(typeof(fpp[:value]))
+        #println(length(fpp[:value]))
+        bt = fpp[:x1][1]
+        vt = fpp[:x3][1]
+        pdfi = fpp[:value][1]
+        p = [[0.01:0.1:0.26]]
+        y = [quantile(pdfi, p) for p = [.005:.005:.995]]
+        x = [pdf(pdfi,yi)  for yi = y] /pdf(pdfi, quantile(pdfi, 0.50)) * 0.5 * 1 #12
+        #println(x)
+        #println(y)
+        plot(vt+x,y,"r-")
+        plot(vt-x,y,"r-")
+        #plot(vt+x,y,"r-", color = gca().lines[-1].get_color())
+        #plot(vt-x,y,"r-", color = gca().lines[-1].get_color())
+        #break
+    end
 
-figure()
-for fc in groupby(fx, :basetime)
-    #plot(fc[:x3], fc[:y],"o-")
-    errorbar(fc[:x3], fc[:y], yerr=[fc[:q25], fc[:q75]],
-             fmt="o", ecolor='g', capthick=2)
+
+    
+    ## #plot(fc[:x3], fc[:q25],"r-")
+    ## #plot(fc[:x3], fc[:q75],"ro")
+    ## yerr = zeros((2,length(fc[:q25])))
+    ## yerr[1,:] = fc[:y] - fc[:q25]
+    ## yerr[2,:] = fc[:q75] - fc[:y]
+    ## errorbar(fc[:x3], fc[:y], yerr=yerr,
+    ##          fmt="o", ecolor='g', capthick=2)
 end
+## title(candidate)
+## for fc in groupby(fx, :basetime)
+##     #plot(fc[:x3], fc[:y],"o-")
+##     #plot(fc[:x3], fc[:q25],"r-")
+##     #plot(fc[:x3], fc[:q75],"ro")
+##     yerr = zeros((2,length(fc[:q25])))
+##     yerr[1,:] = fc[:y] - fc[:q25]
+##     yerr[2,:] = fc[:q75] - fc[:y]
+##     errorbar(fc[:x3], fc[:y], yerr=yerr,
+##              fmt="o", ecolor='g', capthick=2)
+## end
+
+## figure()
+## for fc in groupby(fx, :basetime)
+##     plot(fc[:x3], fc[:y],"o-")
+##     ## errorbar(fc[:x3], fc[:y], yerr=[fc[:q25], fc[:q75]],
+##     ##          fmt="o", ecolor='g', capthick=2)
+## end
 
 # figure()
 # for fc in groupby(fx, :basetime)
