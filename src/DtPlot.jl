@@ -11,66 +11,114 @@ using Verification
 using DataFrames
 using Datetime
 import DeepThought.DTPDFS.PDF
-#import Gadfly.plot
-#using Gadfly
-#include(joinpath(Pkg.dir("Gadfly"), "src", "gadfly.js"))
 
-#include(joinpath(Pkg.dir("DeepThought"), "src/pdf.jl"))
+export prepareDataFramePdf, prepareDataFrameObs, leaf
 
+function prepareDataFramePdf(F, period)
+    fx = asdataframe(F, period)
+    fx[:x1] = [x.seconds/3600 for x = fx[:basetime]]
+    fx[:x2] = [x.seconds/3600 for x = fx[:prognosis]]
+    fx[:x3] = [x.seconds/3600 for x = fx[:basetime] + fx[:prognosis]]
+    fx[:x4] = [datetime(PosixCalendar.ymdhms(x)...) for x = fx[:basetime] + fx[:prognosis]]
+    fx[:x5] = [string(datetime(PosixCalendar.ymdhms(x)...)) for x = fx[:basetime] + fx[:prognosis]]
+    
+    fx[:y] = [median(x) for x = fx[:value]]
+    fx[:q75] = [quantile(x, 0.75) for x = fx[:value]]
+    fx[:q25] = [quantile(x, 0.25) for x = fx[:value]]
+    #fx[:y] = dropna(fx[:y])
+    sort!(fx,cols=:x2)
+end
 
-## function median(pdf::PDF)
-##     if length(pdf.parameters) == 0
-##         return NA
-##     else
-##         return DTPDFS.median(pdf)
-##     end
-## end
-
-
-REPOSITORY = "/var/lib/nfs/deepthought-data-epd"
-STATION = "93831"
-FVAR = "TMinDaily"
-#FVAR = "TTTTT"
-FVAR = "ssrd_3h_sum"
-
-
-REPOSITORY = "/var/lib/nfs/deepthought-data-epd"
-STATION = "93439"
-FVAR = "TTTTT"
-#REPOSITORY = "/home/jade/metservice/code/deepthought/revising/branch-revisingjob/install/data-root_static"
-
-OBS = Observation(REPOSITORY,STATION,"TTTTT","target","observation")
-#OBS = Observation(REPOSITORY,STATION,"TMinDaily","generic","observation_processed_daily")
-#G = PDFForecast(REPOSITORY,STATION,"TTTTT","revising_TTTTTNZBlend_TTTTT")
-#F = PDFForecast(REPOSITORY,STATION,"TTTTT","polishing_TTTTTNZBlend_TTTTT")
-#F = PDFForecast(REPOSITORY,STATION,"TMinDaily","blending_TMinDailyblend_TMinDaily")
-#candidate = "dressing_EcEnsDressing_ssrd_3h_sum_206000_rawPDF"
-#candidate = "blending_TMinDailyblend_TMinDaily"
-candidate = "blending_TTTTTNZBlend_TTTTT"
-#candidate = "vbagging_TTTTTnz8km_TTTTT"
-## candidate = "vbagging_TTTTTnz8kmecgfs_TTTTT"
-## candidate = "vbagging_TTTTTaccessAecgfs_TTTTT"
-## candidate = "vbagging_TTTTTaccessA_TTTTT"
-## candidate = "vbagging_TTTTTecgfscmc_TTTTT"
-## candidate = "vbagging_TTTTTecgfs_TTTTT"
-F = PDFForecast(REPOSITORY,STATION,FVAR, candidate)
-
-hourinsecs = 60*60
-dayinsecs = 24*3600
-
-#period = Request((Time(2013,7,1),Time(2013,10,1),86400),(0,48*3600))
-#period = Request((Time(2014,5,1),Time(2014,5,30), 12*hourinsecs),(0,48*3600))
-#period = Request((Time(2014,5,20),Time(2014,5,30), 12*hourinsecs),(0,48*3600))
-period = Request((Time(2014,5,26,0),Time(2014,5,26,11), 12*hourinsecs),(0,48*3600))
+function prepareDataFrameObs(F, period)
+    fx = asdataframe(F, period)
+    fx[:x1] = [x.seconds/3600 for x = fx[:basetime]]
+    fx[:x2] = [x.seconds/3600 for x = fx[:prognosis]]
+    fx[:x3] = [x.seconds/3600 for x = fx[:basetime] + fx[:prognosis]]
+    fx[:x4] = [datetime(PosixCalendar.ymdhms(x)...) for x = fx[:basetime] + fx[:prognosis]]
+    fx[:x5] = [string(datetime(PosixCalendar.ymdhms(x)...)) for x = fx[:basetime] + fx[:prognosis]]
+    
+    fx[:y] = fx[:value]
+    sort!(fx,cols=:x2)
+end
 
 
-hint(OBS, period)
-obs = getdata(OBS, period)
+function leaf(fx, title)
+    
+    progstep = 1
+    bulge = progstep * 0.3
 
-vts = None
-pps = None
-vals = None
-bts = sort(collect(keys(obs)))
+    #fp = FramedPlot(title = "candidate")
+    fp = FramedPlot(title = title)
+    for fc in groupby(fx, :basetime)
+    
+        #add(fp, Points(fc[:x3], fc[:y]))
+        #add(fp, Curve(fc[:x3], fc[:y]))
+        for fpp in groupby(fc, :prognosis)
+            bt = fpp[:x1][1]
+            vt = fpp[:x3][1]
+            pdfi = fpp[:value][1]
+            p = [[0.01:0.1:0.26]]
+            y1 = [quantile(pdfi, p) for p = [.005:.005:.995]]
+            y2 = [quantile(pdfi, p) for p = [.25:.005:.75]]
+            x1 = [pdf(pdfi,yi)  for yi = y1] /pdf(pdfi, quantile(pdfi, 0.50)) * bulge
+            x2 = [pdf(pdfi,yi)  for yi = y2] /pdf(pdfi, quantile(pdfi, 0.50)) * bulge
+            #add(fp, Curve(vt + x, y, color="red"))
+            #add(fp, Curve(vt - x, y))
+            
+            add(fp, FillBetween(vt .- x1, y1,
+                                vt .+ x1, y1; color="orange", alpha=0.1))
+            add(fp, FillBetween(vt .- x2, y2,
+                                vt .+ x2, y2; color="blue", alpha=0.1))
+            # add(fp, FillBetween(vt - x1, y1,
+            #                     vt + x1, y1; color="#E0E20C", alpha=0.1))
+            # add(fp, FillBetween(vt - x2, y2,
+            #                     vt + x2, y2; color="#00274C", alpha=0.1))
+            ## add(fp, FillBetween(vt - x1, y1,
+            ##                     vt + x1, y1; color="#00274C", alpha=0.1))
+            ## add(fp, FillBetween(vt - x2, y2,
+            ##                     vt + x2, y2; color="#E0E20C", alpha=0.1))
+            
+            #plot(vt+x,y,"r-", color = gca().lines[-1].get_color())
+            #plot(vt-x,y,"r-", color = gca().lines[-1].get_color())
+        end
+        b = Points(fc[:x3], fc[:y])
+        #setattr(b, label="b points")
+        style(b, kind="filled circle", size=0.5, color="white")
+        #style(b, size=0.5)
+        add(fp, b)
+        add(fp, Curve(fc[:x3], fc[:y]))
+        
+        epoch_ticklabels = getattr(fp.x1, "ticklabels")
+        epoch_ticks = getattr(fp.x1, "ticks")
+        println("xxx ", epoch_ticks)
+        println("xxx ", epoch_ticklabels)
+        
+        
+        nticks = 4
+        date_ticklabels = String[]
+        [push!(date_ticklabels, PosixCalendar.iso(i)) for i in fc[:basetime] + fc[:prognosis] ]
+        date_idxs = map(int, linspace(1, length(date_ticklabels), nticks))
+        date_ticklabels2 = String[]
+        println([date_ticklabels[i] for i in date_idxs ]  )
+        [push!(date_ticklabels2, replace(date_ticklabels[i], "T", "\n  "))
+         for i in date_idxs ]                      
+        #date_ticklabels2 = ["aaaa\nbbb","aaaa\nbbb","aaaa\nbbb","aaaa\nbbb"]
+
+        ## println("yyy ", epoch_ticklabels)
+        ## println("yyy ", date_ticklabels)
+        ## ticklabels = String[]
+        
+        ## [push!(ticklabels, i) for i = ["a","b"]]
+        setattr(fp.x1, "ticks", length(date_ticklabels2))
+        setattr(fp.x1, "ticklabels", date_ticklabels2)
+        # setattr(fp.x1, "ticks_style", angle=90)
+        #style(fp, angle=90)
+    end
+    return fp
+end
+
+
+
 
 
 ## function plot{T}(p::Predictor{T},period::Request)
@@ -90,14 +138,6 @@ bts = sort(collect(keys(obs)))
     
 ## ## end
 ## figure()
-## for bt = bts
-##     pps = sort(collect(keys(obs[bt])))
-##     vts = sort([bt + pp for pp = pps])
-##     vals = [obs[bt][pp] for pp = pps]
-##     pps = [pp.seconds for pp in pps]
-##     vts = [vt.seconds/3600 for vt in vts]
-##     plot(vts, vals,"k")
-## end         
 
 ## #-------------------------------------------------------------------------------
 ## figure()
@@ -119,20 +159,6 @@ bts = sort(collect(keys(obs)))
 ## end         
 
 
-fx = asdataframe(F, period)
-fx[:x1] = [x.seconds/3600 for x = fx[:basetime]]
-fx[:x2] = [x.seconds/3600 for x = fx[:prognosis]]
-fx[:x3] = [x.seconds/3600 for x = fx[:basetime] + fx[:prognosis]]
-fx[:x4] = [datetime(PosixCalendar.ymdhms(x)...) for x = fx[:basetime] + fx[:prognosis]]
-fx[:x5] = [string(datetime(PosixCalendar.ymdhms(x)...)) for x = fx[:basetime] + fx[:prognosis]]
-
-fx[:y] = [median(x) for x = fx[:value]]
-fx[:q75] = [quantile(x, 0.75) for x = fx[:value]]
-fx[:q25] = [quantile(x, 0.25) for x = fx[:value]]
-
-#fx[:y] = dropna(fx[:y])
-    
-sort!(fx,cols=:x2)
 
 
 # Need to add obs to dataframe
@@ -166,70 +192,9 @@ sort!(fx,cols=:x2)
 ##     end
 ## end
 
-fp = FramedPlot(title = "candidate")
-for fc in groupby(fx, :basetime)
-    
-    #add(fp, Points(fc[:x3], fc[:y]))
-    #add(fp, Curve(fc[:x3], fc[:y]))
-    for fpp in groupby(fc, :prognosis)
-        bt = fpp[:x1][1]
-        vt = fpp[:x3][1]
-        pdfi = fpp[:value][1]
-        p = [[0.01:0.1:0.26]]
-        y1 = [quantile(pdfi, p) for p = [.005:.005:.995]]
-        y2 = [quantile(pdfi, p) for p = [.25:.005:.75]]
-        x1 = [pdf(pdfi,yi)  for yi = y1] /pdf(pdfi, quantile(pdfi, 0.50)) * 0.3 * 1 #12
-        x2 = [pdf(pdfi,yi)  for yi = y2] /pdf(pdfi, quantile(pdfi, 0.50)) * 0.3 * 1 #12
-        #add(fp, Curve(vt + x, y, color="red"))
-        #add(fp, Curve(vt - x, y))
-        
-        ## add(fp, FillBetween(vt - x1, y1,
-        ##                     vt + x1, y1; color="orange", alpha=0.1))
-        ## add(fp, FillBetween(vt - x2, y2,
-        ##                     vt + x2, y2; color="blue", alpha=0.1))
-        add(fp, FillBetween(vt - x1, y1,
-                            vt + x1, y1; color="#E0E20C", alpha=0.1))
-        add(fp, FillBetween(vt - x2, y2,
-                            vt + x2, y2; color="#00274C", alpha=0.1))
-        ## add(fp, FillBetween(vt - x1, y1,
-        ##                     vt + x1, y1; color="#00274C", alpha=0.1))
-        ## add(fp, FillBetween(vt - x2, y2,
-        ##                     vt + x2, y2; color="#E0E20C", alpha=0.1))
-        
-        #plot(vt+x,y,"r-", color = gca().lines[-1].get_color())
-        #plot(vt-x,y,"r-", color = gca().lines[-1].get_color())
-    end
-    b = Points(fc[:x3], fc[:y])
-    #setattr(b, label="b points")
-    style(b, kind="filled circle", size=0.5, color="white")
-    #style(b, size=0.5)
-    add(fp, b)
-    add(fp, Curve(fc[:x3], fc[:y]))
-    
-    epoch_ticklabels = getattr(fp.x1, "ticklabels")
-    epoch_ticks = getattr(fp.x1, "ticks")
-    println("xxx ", epoch_ticks)
-    println("xxx ", epoch_ticklabels)
 
 
-    nticks = 4
-    date_ticklabels = String[]
-    [push!(date_ticklabels, PosixCalendar.iso(i)) for i in fc[:basetime] + fc[:prognosis] ]
-    date_idxs = map(int, linspace(1, length(date_ticklabels), nticks))
-    date_ticklabels2 = String[]
-    println([date_ticklabels[i] for i in date_idxs ]  )
-    [push!(date_ticklabels2, date_ticklabels[i]) for i in date_idxs ]                      
-        
-    ## println("yyy ", epoch_ticklabels)
-    ## println("yyy ", date_ticklabels)
-    ## ticklabels = String[]
 
-    ## [push!(ticklabels, i) for i = ["a","b"]]
-    setattr(fp.x1, "ticks", length(date_ticklabels2))
-    setattr(fp.x1, "ticklabels", date_ticklabels2)
-   # setattr(fp.x1, "ticks_style", angle=90)
-    #style(fp, angle=90)
-end
 
 ## title(candidate)
 ## for fc in groupby(fx, :basetime)
