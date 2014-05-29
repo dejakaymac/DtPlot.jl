@@ -2,7 +2,7 @@ module DtPlot
 
 #using Winston
 using PyPlot
-#using Winston
+using Winston
 using PosixCalendar
 using Predictors
 using DeepThought.DTPredictors
@@ -31,14 +31,22 @@ REPOSITORY = "/var/lib/nfs/deepthought-data-epd"
 STATION = "93831"
 FVAR = "TMinDaily"
 #FVAR = "TTTTT"
-    
-#OBS = Observation(REPOSITORY,STATION,"TTTTT","target","observation")
-OBS = Observation(REPOSITORY,STATION,"TMinDaily","generic","observation_processed_daily")
+FVAR = "ssrd_3h_sum"
+
+
+REPOSITORY = "/var/lib/nfs/deepthought-data-epd"
+STATION = "93439"
+FVAR = "TTTTT"
+#REPOSITORY = "/home/jade/metservice/code/deepthought/revising/branch-revisingjob/install/data-root_static"
+
+OBS = Observation(REPOSITORY,STATION,"TTTTT","target","observation")
+#OBS = Observation(REPOSITORY,STATION,"TMinDaily","generic","observation_processed_daily")
 #G = PDFForecast(REPOSITORY,STATION,"TTTTT","revising_TTTTTNZBlend_TTTTT")
 #F = PDFForecast(REPOSITORY,STATION,"TTTTT","polishing_TTTTTNZBlend_TTTTT")
 #F = PDFForecast(REPOSITORY,STATION,"TMinDaily","blending_TMinDailyblend_TMinDaily")
-candidate = "blending_TMinDailyblend_TMinDaily"
-#candidate = "blending_TTTTTNZBlend_TTTTT"
+#candidate = "dressing_EcEnsDressing_ssrd_3h_sum_206000_rawPDF"
+#candidate = "blending_TMinDailyblend_TMinDaily"
+candidate = "blending_TTTTTNZBlend_TTTTT"
 #candidate = "vbagging_TTTTTnz8km_TTTTT"
 ## candidate = "vbagging_TTTTTnz8kmecgfs_TTTTT"
 ## candidate = "vbagging_TTTTTaccessAecgfs_TTTTT"
@@ -53,7 +61,7 @@ dayinsecs = 24*3600
 #period = Request((Time(2013,7,1),Time(2013,10,1),86400),(0,48*3600))
 #period = Request((Time(2014,5,1),Time(2014,5,30), 12*hourinsecs),(0,48*3600))
 #period = Request((Time(2014,5,20),Time(2014,5,30), 12*hourinsecs),(0,48*3600))
-period = Request((Time(2014,5,26,0),Time(2014,5,26,18), 12*hourinsecs),(0,48*3600))
+period = Request((Time(2014,5,26,0),Time(2014,5,26,11), 12*hourinsecs),(0,48*3600))
 
 
 hint(OBS, period)
@@ -80,16 +88,16 @@ bts = sort(collect(keys(obs)))
 ##     end
     
     
-## end
-figure()
-for bt = bts
-    pps = sort(collect(keys(obs[bt])))
-    vts = sort([bt + pp for pp = pps])
-    vals = [obs[bt][pp] for pp = pps]
-    pps = [pp.seconds for pp in pps]
-    vts = [vt.seconds/3600 for vt in vts]
-    plot(vts, vals,"k")
-end         
+## ## end
+## figure()
+## for bt = bts
+##     pps = sort(collect(keys(obs[bt])))
+##     vts = sort([bt + pp for pp = pps])
+##     vals = [obs[bt][pp] for pp = pps]
+##     pps = [pp.seconds for pp in pps]
+##     vts = [vt.seconds/3600 for vt in vts]
+##     plot(vts, vals,"k")
+## end         
 
 ## #-------------------------------------------------------------------------------
 ## figure()
@@ -140,48 +148,89 @@ sort!(fx,cols=:x2)
 #     plot(fc[:x2], fc[:y],"o")
 # end
 
-#figure()
-title(candidate)
+## #figure()
+## title(candidate)
+## for fc in groupby(fx, :basetime)
+##     plot(fc[:x3], fc[:y],"o-")
+##     for fpp in groupby(fc, :prognosis)
+##         bt = fpp[:x1][1]
+##         vt = fpp[:x3][1]
+##         pdfi = fpp[:value][1]
+##         p = [[0.01:0.1:0.26]]
+##         y = [quantile(pdfi, p) for p = [.005:.005:.995]]
+##         x = [pdf(pdfi,yi)  for yi = y] /pdf(pdfi, quantile(pdfi, 0.50)) * 0.5 * 1 #12
+##         plot(vt+x,y,"r-")
+##         plot(vt-x,y,"r-")
+##         #plot(vt+x,y,"r-", color = gca().lines[-1].get_color())
+##         #plot(vt-x,y,"r-", color = gca().lines[-1].get_color())
+##     end
+## end
+
+fp = FramedPlot(title = "candidate")
 for fc in groupby(fx, :basetime)
-    println(fc[:x3])
-    println(fc[:y])
- 
-    #break
-    plot(fc[:x3], fc[:y],"o-")
-    #break
+    
+    #add(fp, Points(fc[:x3], fc[:y]))
+    #add(fp, Curve(fc[:x3], fc[:y]))
     for fpp in groupby(fc, :prognosis)
-        println("naz")
-        ## if anyna(fpp[:y])
-        ##        continue
-        ##    end
-        #continue
-        #println(typeof(fpp[:value]))
-        #println(length(fpp[:value]))
         bt = fpp[:x1][1]
         vt = fpp[:x3][1]
         pdfi = fpp[:value][1]
         p = [[0.01:0.1:0.26]]
-        y = [quantile(pdfi, p) for p = [.005:.005:.995]]
-        x = [pdf(pdfi,yi)  for yi = y] /pdf(pdfi, quantile(pdfi, 0.50)) * 0.5 * 1 #12
-        #println(x)
-        #println(y)
-        plot(vt+x,y,"r-")
-        plot(vt-x,y,"r-")
+        y1 = [quantile(pdfi, p) for p = [.005:.005:.995]]
+        y2 = [quantile(pdfi, p) for p = [.25:.005:.75]]
+        x1 = [pdf(pdfi,yi)  for yi = y1] /pdf(pdfi, quantile(pdfi, 0.50)) * 0.3 * 1 #12
+        x2 = [pdf(pdfi,yi)  for yi = y2] /pdf(pdfi, quantile(pdfi, 0.50)) * 0.3 * 1 #12
+        #add(fp, Curve(vt + x, y, color="red"))
+        #add(fp, Curve(vt - x, y))
+        
+        ## add(fp, FillBetween(vt - x1, y1,
+        ##                     vt + x1, y1; color="orange", alpha=0.1))
+        ## add(fp, FillBetween(vt - x2, y2,
+        ##                     vt + x2, y2; color="blue", alpha=0.1))
+        add(fp, FillBetween(vt - x1, y1,
+                            vt + x1, y1; color="#E0E20C", alpha=0.1))
+        add(fp, FillBetween(vt - x2, y2,
+                            vt + x2, y2; color="#00274C", alpha=0.1))
+        ## add(fp, FillBetween(vt - x1, y1,
+        ##                     vt + x1, y1; color="#00274C", alpha=0.1))
+        ## add(fp, FillBetween(vt - x2, y2,
+        ##                     vt + x2, y2; color="#E0E20C", alpha=0.1))
+        
         #plot(vt+x,y,"r-", color = gca().lines[-1].get_color())
         #plot(vt-x,y,"r-", color = gca().lines[-1].get_color())
-        #break
     end
-
-
+    b = Points(fc[:x3], fc[:y])
+    #setattr(b, label="b points")
+    style(b, kind="filled circle", size=0.5, color="white")
+    #style(b, size=0.5)
+    add(fp, b)
+    add(fp, Curve(fc[:x3], fc[:y]))
     
-    ## #plot(fc[:x3], fc[:q25],"r-")
-    ## #plot(fc[:x3], fc[:q75],"ro")
-    ## yerr = zeros((2,length(fc[:q25])))
-    ## yerr[1,:] = fc[:y] - fc[:q25]
-    ## yerr[2,:] = fc[:q75] - fc[:y]
-    ## errorbar(fc[:x3], fc[:y], yerr=yerr,
-    ##          fmt="o", ecolor='g', capthick=2)
+    epoch_ticklabels = getattr(fp.x1, "ticklabels")
+    epoch_ticks = getattr(fp.x1, "ticks")
+    println("xxx ", epoch_ticks)
+    println("xxx ", epoch_ticklabels)
+
+
+    nticks = 4
+    date_ticklabels = String[]
+    [push!(date_ticklabels, PosixCalendar.iso(i)) for i in fc[:basetime] + fc[:prognosis] ]
+    date_idxs = map(int, linspace(1, length(date_ticklabels), nticks))
+    date_ticklabels2 = String[]
+    println([date_ticklabels[i] for i in date_idxs ]  )
+    [push!(date_ticklabels2, date_ticklabels[i]) for i in date_idxs ]                      
+        
+    ## println("yyy ", epoch_ticklabels)
+    ## println("yyy ", date_ticklabels)
+    ## ticklabels = String[]
+
+    ## [push!(ticklabels, i) for i = ["a","b"]]
+    setattr(fp.x1, "ticks", length(date_ticklabels2))
+    setattr(fp.x1, "ticklabels", date_ticklabels2)
+   # setattr(fp.x1, "ticks_style", angle=90)
+    #style(fp, angle=90)
 end
+
 ## title(candidate)
 ## for fc in groupby(fx, :basetime)
 ##     #plot(fc[:x3], fc[:y],"o-")
