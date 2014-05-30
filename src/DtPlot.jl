@@ -22,7 +22,8 @@ function prepareDataFramePdf(F, period)
     fx[:x4] = [datetime(PosixCalendar.ymdhms(x)...) for x = fx[:basetime] + fx[:prognosis]]
     fx[:x5] = [string(datetime(PosixCalendar.ymdhms(x)...)) for x = fx[:basetime] + fx[:prognosis]]
     
-    fx[:y] = [median(x) for x = fx[:value]]
+    fx[:median] = [median(x) for x = fx[:value]]
+    fx[:mean] = [mean(x) for x = fx[:value]]
     fx[:q75] = [quantile(x, 0.75) for x = fx[:value]]
     fx[:q25] = [quantile(x, 0.25) for x = fx[:value]]
     #fx[:y] = dropna(fx[:y])
@@ -81,12 +82,12 @@ function leaf(fx, title)
             #plot(vt+x,y,"r-", color = gca().lines[-1].get_color())
             #plot(vt-x,y,"r-", color = gca().lines[-1].get_color())
         end
-        b = Points(fc[:x3], fc[:y])
+        b = Points(fc[:x3], fc[:median])
         #setattr(b, label="b points")
         style(b, kind="filled circle", size=0.5, color="white")
         #style(b, size=0.5)
         add(fp, b)
-        add(fp, Curve(fc[:x3], fc[:y]))
+        add(fp, Curve(fc[:x3], fc[:median]))
         
         epoch_ticklabels = getattr(fp.x1, "ticklabels")
         epoch_ticks = getattr(fp.x1, "ticks")
