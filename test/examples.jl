@@ -111,10 +111,20 @@ add(fp2, obsp)
 add(fp2, obsc)
 
 display(fp2)
+    
+## # adjust xbounds
+## setattr(fp2, "xrange",(vts[1]-20, vts[end]))
+## display(fp2)
 
+    
+
+# Example 2b -------------------------------------------------------------------
+fp2a = FramedPlot(fp2)
+# FramedPlot()
+    
 # adjust xbounds
-setattr(fp2, "xrange",(vts[1]-20, vts[end]))
-display(fp2)
+setattr(fp2a, "xrange",(vts[1]-20, vts[end]))
+display(fp2a)
 
 
 
@@ -125,7 +135,7 @@ period = Request((Time(2013,7,1,12),
                  range)
 figure()
 df = prepareDataFramePdf(F, period)
-fp3 = FramedPlot()
+fp3 = FramedPlot(title = "Basehour = 12Z")
 #figure()
 colors = ["red", "blue", "green", "magenta", "orange"]
 cnt = 0
@@ -161,7 +171,7 @@ period = Request((Time(2013,7,1,12),
                  (0,basestep))
 figure()
 df = prepareDataFramePdf(F, period)
-fp4 = FramedPlot()
+fp4 = FramedPlot(title = "Overlapping regions prognoses omitted")
 #figure()
 colors = ["red", "blue", "green", "magenta", "orange"]
 cnt = 0
@@ -190,72 +200,3 @@ end
 display(fp4)
 
 
-
-# Example 5 --------------------------------------------------------------------
-period = Request((Time(2013,7,1,12),
-                  Time(2013,7,5,12), 
-                  basestep),
-                 (0,basestep))
-figure()
-df = prepareDataFramePdf(F, period)
-fp4 = FramedPlot()
-#figure()
-colors = ["red", "blue", "green", "magenta", "orange"]
-cnt = 0
-for fc in groupby(df, :basetime)
-    cnt += 1
-    x = convert(Array{Float64,1}, fc[:x3])
-    y = convert(Array{Float64,1}, fc[:median])
-    #println(x, "\n",y)
-    color = colors[1+cnt%length(colors)]
-    p = Points(x, y)
-    setattr(p, label=fc[:basetime][1])
-    style(p, kind="filled circle", size=0.3, color=color)
-
-
-    #l = Legend(.1, .9, {a,b,s})
-
-    c = Curve(x, y, color=color)
-    add(fp4, p)
-    add(fp4, c)
-    #oplot(x,y)
-    ## errorbar(fc[:x3], fc[:median], yerr=[fc[:q25], fc[:q75]],
-    ##          fmt="o", ecolor='g', capthick=2)
-end
-
-display(fp4)
-
-
-# Example 5 --------------------------------------------------------------------
-period = Request((Time(2013,7,1,12),
-                  Time(2013,7,5,12), 
-                  basestep),
-                 (0,basestep))
-figure()
-df = prepareDataFramePdf(F, period)
-fp5 = FramedPlot()
-#figure()
-colors = ["red", "blue", "green", "magenta", "orange"]
-cnt = 0
-for fc in groupby(df, :basetime)
-    cnt += 1
-    x = convert(Array{Float64,1}, fc[:x3])
-    y = convert(Array{Float64,1}, fc[:median] - fc[:mean])
-    #println(x, "\n",y)
-    color = colors[1+cnt%length(colors)]
-    p = Points(x, y)
-    setattr(p, label=fc[:basetime][1])
-    style(p, kind="filled circle", size=0.3, color=color)
-
-
-    #l = Legend(.1, .9, {a,b,s})
-
-    c = Curve(x, y, color=color)
-    add(fp5, p)
-    add(fp5, c)
-    #oplot(x,y)
-    ## errorbar(fc[:x3], fc[:median], yerr=[fc[:q25], fc[:q75]],
-    ##          fmt="o", ecolor='g', capthick=2)
-end
-
-display(fp5)
